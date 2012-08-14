@@ -253,9 +253,11 @@ bool CHMCreator::extractImageFromChm(struct chmFile *chm, struct chmUnitInfo *in
 
     return false;
 }
-//!---------------------------------If u think so... smile :) hardcoding is cooler
+
 void CHMCreator::getCoverFileName() //terrible...I know :(
 {
+    extractedFile = extractedFile.toLower();
+    
     int posBegin = extractedFile.indexOf("<param name=\"Local\" value=\"", 0);
     while (posBegin <= extractedFile.length())
     {

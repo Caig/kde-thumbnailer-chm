@@ -85,7 +85,7 @@ bool CHMCreator::create(const QString& path, int width, int height, QImage& img)
 
                 if (extractImagesUrlFromHtml(&ImagesUrlFromHtml) == true)
                 {
-                    for (int a = 0; a <= ImagesUrlFromHtml.count(); ++a)
+                    for (int a = 0; a < ImagesUrlFromHtml.count(); ++a)
                     {
                         coverFileName = ImagesUrlFromHtml.at(a);
                         if (basePath != "/")

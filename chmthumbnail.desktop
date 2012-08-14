@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Type=Service
+Name=CHM documents
+Name[it]=Documenti CHM
+Name[zh_CN]=CHM 文档
+X-KDE-ServiceTypes=ThumbCreator
+MimeType=application/vnd.ms-htmlhelp;
+CacheThumbnail=true
+X-KDE-Library=chmthumbnail

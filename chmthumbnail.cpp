@@ -256,9 +256,7 @@ bool CHMCreator::extractImageFromChm(struct chmFile *chm, struct chmUnitInfo *in
 
 void CHMCreator::getCoverFileName() //terrible...I know :(
 {
-    extractedFile = extractedFile.toLower();
-    
-    int posBegin = extractedFile.indexOf("<param name=\"Local\" value=\"", 0);
+    int posBegin = extractedFile.indexOf("<param name=\"Local\" value=\"", 0, Qt::CaseInsensitive);
     while (posBegin <= extractedFile.length())
     {
         if(posBegin != -1) //if something is found...
@@ -269,7 +267,7 @@ void CHMCreator::getCoverFileName() //terrible...I know :(
             if (coverFileName != "")
                 break;
             else //tries to retrieve the next matching position
-                posBegin = extractedFile.indexOf("<param name=\"Local\" value=\"", posBegin+1);
+                posBegin = extractedFile.indexOf("<param name=\"Local\" value=\"", posBegin+1, Qt::CaseInsensitive);
         }
     }
 }

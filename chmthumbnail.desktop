@@ -5,6 +5,6 @@ Name=CHM documents
 Name[it]=Documenti CHM
 Name[zh_CN]=CHM 文档
 X-KDE-ServiceTypes=ThumbCreator
-MimeType=application/vnd.ms-htmlhelp;
+MimeType=application/vnd.ms-htmlhelp;application/x-chm;
 CacheThumbnail=true
 X-KDE-Library=chmthumbnail

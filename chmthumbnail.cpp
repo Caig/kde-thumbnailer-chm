@@ -70,7 +70,7 @@ bool CHMCreator::create(const QString& path, int width, int height, QImage& img)
         qDebug() << "Analizing cover file name:" << coverFileName;
 
         //is an image or am html file?
-        QString fileExt = QFileInfo(coverFileName).completeSuffix().toLower();
+        QString fileExt = QFileInfo(coverFileName).suffix().toLower();
         if (fileExt == "htm" || fileExt == "html")
         {
             qDebug() << "it's an html document...";
@@ -112,7 +112,7 @@ bool CHMCreator::create(const QString& path, int width, int height, QImage& img)
             }
         }
         
-        if (fileExt == "jpg" || fileExt == "png" || fileExt == "gif")
+        if (fileExt == "jpg" || fileExt == "jpeg" || fileExt == "png" || fileExt == "gif")
         {
             qDebug() << "it's an image...";
 
@@ -142,7 +142,7 @@ int CHMCreator::indexCallBack(struct chmFile *chm, struct chmUnitInfo *info, voi
 {
     if (info->flags & CHM_ENUMERATE_FILES)
     {
-        QString fileExt = QFileInfo(info->path).completeSuffix().toLower();
+        QString fileExt = QFileInfo(info->path).suffix().toLower();
         if (fileExt == "hhc") //if it's the index...
         {
             qDebug() << "Found index:" << info->path;
@@ -269,6 +269,8 @@ void CHMCreator::getCoverFileName() //terrible...I know :(
             else //tries to retrieve the next matching position
                 posBegin = extractedFile.indexOf("<param name=\"Local\" value=\"", posBegin+1, Qt::CaseInsensitive);
         }
+        else
+            break;
     }
 }
 
@@ -282,6 +284,9 @@ void CHMCreator::checkCoverFileName()
 
     if (coverFileName.contains("%20") == true)
         coverFileName.replace("%20", " ");
+    
+    if (coverFileName.contains("&amp;") == true)
+        coverFileName.replace("&amp;", "&");
 }
 
 ThumbCreator::Flags CHMCreator::flags() const

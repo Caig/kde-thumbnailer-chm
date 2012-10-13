@@ -25,6 +25,18 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 CHMCreator *CHMCreator::pObject;
 
+enum EIndexType
+{
+    NO_INDEX,     // chm index not found
+    HHC_INDEX,    // *.hhc index found
+    URLSTR_INDEX  // #URLSTR index found
+};
+
+struct Scontext
+{
+    bool searchForHhc; // true to search for *.hhc, false for #URLSTR
+};
+
 extern "C"
 {
     KDE_EXPORT ThumbCreator *new_creator()
@@ -46,44 +58,87 @@ bool CHMCreator::create(const QString& path, int width, int height, QImage& img)
 {
     chm = chm_open(qPrintable(path));
 
+    qDebug() << "[thumbnailer-chm]";
+    qDebug() << "Opening" << path;
+    
     if (chm == NULL)
     {
-        qDebug() << "Error: failed to open" << path;
+        qDebug() << "Error: unable to open the file.";
+        qDebug() << "[/thumbnailer-chm]";
         exit(1);
     }
 
-    qDebug() << "[thumbnailer-chm]";
-    qDebug() << "Opening" << path;
+    // the same instance of the thumbnailer plugin is used
+    // for all the CHMs in a directory, so better to clean
+    // some important variables every time...
+    extractedFileByte = "";
+    extractedFileString = "";
+    coverFileName = "";
 
-    extractedFile = "";
+    // search for the index file *.hhc or #URLSTR
+    int indexSearchResult = NO_INDEX;
+    
+    // search for *.hhc file
+    Scontext searchContext;
+    searchContext.searchForHhc = true;
+    chm_enumerate(chm, CHM_ENUMERATE_ALL, indexCallBackWrapper, (void *)&searchContext);
 
-    //search for the index file (*.hhc)
-    if (!chm_enumerate(chm, CHM_ENUMERATE_ALL, indexCallBackWrapper, NULL))
-        qDebug() << "Error: chm_enumerate failed";
-
-    if (extractedFile.length() == 0)
-        qDebug() <<  "Error: index not found";
+    if (extractedFileByte.length() != 0)
+        indexSearchResult = HHC_INDEX;
     else
     {
-        getCoverFileName();
-        checkCoverFileName();
-        qDebug() << "Analizing cover file name:" << coverFileName;
+        qDebug() << "Index (*.hhc) not found";
 
-        //is an image or am html file?
+        // search for #URLSTR file
+        searchContext.searchForHhc = false;
+        chm_enumerate(chm, CHM_ENUMERATE_ALL, indexCallBackWrapper, (void *)&searchContext);
+        if (extractedFileByte.length() != 0)
+            indexSearchResult = URLSTR_INDEX;
+        else
+            qDebug() << "Index (#URLSTR) not found";
+    }        
+
+    if (indexSearchResult != NO_INDEX)
+    {
+        // an #URLSTR file should be something like this:
+        //
+        // °°°°°°°°°1.htm°°°°°°°°°2.htm°°°°°°°°°3.htm° [...]
+        //
+        // where '°' represents a '\0' character.
+        // The '\0' characters don't allow to convert from QByteArray to QString
+        // ( see QString::QString (const QByteArray & ba) ) successfully.
+        // So better to replace '\0' with another character.
+        if (indexSearchResult == URLSTR_INDEX)
+            extractedFileByte.replace('\0', '\a');
+
+        extractedFileString = QString(extractedFileByte);
+
+        getCoverFileName(indexSearchResult);
+        
+        checkCoverFileName();
+        
+        qDebug() << "Analizing:" << coverFileName;
+
+        // it's an image or an html file?
         QString fileExt = QFileInfo(coverFileName).suffix().toLower();
+        
         if (fileExt == "htm" || fileExt == "html")
         {
-            qDebug() << "it's an html document...";
+            qDebug() << "It's an html document...";
 
             QString basePath;
-            basePath = QFileInfo(coverFileName).path(); //saves html path to use later to retrieve the image (it has a relative path)
+            basePath = QFileInfo(coverFileName).path(); // saves html path to use later to retrieve the image (it has a relative path)
 
             chmUnitInfo info;
             if (extractFileFromChm(chm, &info, coverFileName.toUtf8().data()) == true)
             {
-                QStringList ImagesUrlFromHtml; //to collect the src items from <img...> tags
-
-                if (extractImagesUrlFromHtml(&ImagesUrlFromHtml) == true)
+                extractedFileString = QString(extractedFileByte);
+                
+                // collects the src items from <img...> tags and tests the retrieved images
+                QStringList ImagesUrlFromHtml;
+                if (extractImagesUrlFromHtml(&ImagesUrlFromHtml) == false)
+                    qDebug() << "Cover image not found";
+                else
                 {
                     for (int a = 0; a < ImagesUrlFromHtml.count(); ++a)
                     {
@@ -92,29 +147,34 @@ bool CHMCreator::create(const QString& path, int width, int height, QImage& img)
                             coverFileName = basePath + "/" + coverFileName;
 
                         checkCoverFileName();
-                        qDebug() << coverFileName;
+                        qDebug() << "Testing the image" << coverFileName;
 
                         chmUnitInfo info;
                         if (extractImageFromChm(chm, &info, &coverFileName) == true)
                         {
-                            //checks if the image has normal cover proportion (a way to avoid to select stupid button images contained in some chm file)
+                            // checks if the image has normal* cover ratio
+                            // (a way to avoid to select stupid button images
+                            // seen in some chm files).
+                            //
+                            // *Usually a cover has height > width and a button
+                            // has width > height.
                             if (coverImage.width()/coverImage.height() < 1)
                             {
                                 img = coverImage.scaled(width, height, Qt::KeepAspectRatio, Qt::SmoothTransformation);
                                 qDebug() << "...is the cover: DONE!";
                                 break;
                             }
+                            else
+                                qDebug() << "...isn't the cover.";
                         }
                     }
                 }
-                else
-                    qDebug() << "Error: cover image not found";
             }
-        }
+        } // end of the html case procedure
         
         if (fileExt == "jpg" || fileExt == "jpeg" || fileExt == "png" || fileExt == "gif")
         {
-            qDebug() << "it's an image...";
+            qDebug() << "It's an image...";
 
             chmUnitInfo info;
             if (extractImageFromChm(chm, &info, &coverFileName) == true)
@@ -140,15 +200,30 @@ int CHMCreator::indexCallBackWrapper(struct chmFile *chm, struct chmUnitInfo *in
 
 int CHMCreator::indexCallBack(struct chmFile *chm, struct chmUnitInfo *info, void *context)
 {
+    Scontext *tContext = (Scontext *)context;
+    
     if (info->flags & CHM_ENUMERATE_FILES)
     {
-        QString fileExt = QFileInfo(info->path).suffix().toLower();
-        if (fileExt == "hhc") //if it's the index...
+        if (tContext->searchForHhc == true)
         {
-            qDebug() << "Found index:" << info->path;
-            extractFileFromChm(chm, info);
+            QString fileExt = QFileInfo(info->path).suffix().toLower();
+            if (fileExt == "hhc")
+            {
+                qDebug() << "Found index (*.hhc):" << info->path;
+                extractFileFromChm(chm, info);
 
-            return CHM_ENUMERATOR_SUCCESS;
+                return CHM_ENUMERATOR_SUCCESS;
+            }
+        }
+        else
+        {
+            if (QString::fromAscii(info->path) == "/#URLSTR")
+            {
+                qDebug() << "Found index #URLSTR.";
+                extractFileFromChm(chm, info);
+
+                return CHM_ENUMERATOR_SUCCESS;
+            }
         }
     }
     
@@ -162,19 +237,15 @@ bool CHMCreator::extractFileFromChm(struct chmFile *chm, struct chmUnitInfo *inf
 
     if (CHM_RESOLVE_SUCCESS == chm_resolve_object(chm, fileName, info))
     {
-        unsigned char buffer[info->length];
+        //unsigned char buffer[info->length];
+        extractedFileByte.resize(info->length);
 
-        LONGINT64 gotLen = chm_retrieve_object(chm, info, buffer, 0, info->length);
+        LONGINT64 gotLen = chm_retrieve_object(chm, info, (unsigned char*)extractedFileByte.data(), 0, info->length);
 
         if (gotLen == 0)
-        {
             qDebug() <<  "Error: index not retrieved (invalid filesize)";
-        }
         else
-        {
-            extractedFile = QString((const char *)buffer); //to rethink
             return true;
-        }
     }
     else
         qDebug() <<  "Error: index not retrieved (chm_resolve_object failed)";
@@ -185,14 +256,14 @@ bool CHMCreator::extractFileFromChm(struct chmFile *chm, struct chmUnitInfo *inf
 bool CHMCreator::extractImagesUrlFromHtml(QStringList *ImagesUrlFromHtml)
 {
     // Why this solution? Because...
-    // * html != xhml so I can't use Qt's XML classes
+    // * html != xhtml so I can't use Qt's XML classes
     // * I don't like the idea to use HTML Tidy Library to convert the html to xhtml
     // * I didn't find a c++ html parser and I don't want to add another library
     // * Regular expressions are a mess with so various htmls
     
-    extractedFile = extractedFile.toLower(); //to avoid problems with "img", "IMG" and similar nice things
+    extractedFileString = extractedFileString.toLower(); // to avoid problems with "img", "IMG" and similar nice things
 
-    int occurrences = extractedFile.count("<img");
+    int occurrences = extractedFileString.count("<img");
     if (occurrences > 0)
     {
         int posBeginImg = 0;
@@ -200,12 +271,12 @@ bool CHMCreator::extractImagesUrlFromHtml(QStringList *ImagesUrlFromHtml)
 
         for (int a = occurrences; a > 0; --a)
         {
-            posBeginImg = extractedFile.indexOf("<img", posBeginImg)+4;
-            posEndImg = extractedFile.indexOf(">", posBeginImg);
+            posBeginImg = extractedFileString.indexOf("<img", posBeginImg)+4;
+            posEndImg = extractedFileString.indexOf(">", posBeginImg);
 
             QString imgString;
-            imgString = extractedFile.mid(posBeginImg, posEndImg - posBeginImg);
-            qDebug() << "imgString:" << imgString;
+            imgString = extractedFileString.mid(posBeginImg, posEndImg - posBeginImg);
+            //qDebug() << "imgString:" << imgString;
 
             if (imgString.contains("src") == true)
             {
@@ -216,7 +287,7 @@ bool CHMCreator::extractImagesUrlFromHtml(QStringList *ImagesUrlFromHtml)
                 imgSrc = imgString.mid(posBeginSrc, posEndSrc - posBeginSrc);
                 imgSrc.remove('\"');
                 imgSrc.remove('\'');
-                qDebug() << "imgSrc:" << imgSrc << posBeginImg << posEndImg;
+                //qDebug() << "imgSrc:" << imgSrc << posBeginImg << posEndImg;
                 ImagesUrlFromHtml->append(imgSrc);
             }
 
@@ -239,7 +310,7 @@ bool CHMCreator::extractImageFromChm(struct chmFile *chm, struct chmUnitInfo *in
 
         if (gotLen == 0)
         {
-            qDebug() <<  "Error: image not retrieved (invalid filesize)";
+            qDebug() << "Error: image not retrieved (invalid filesize)";
         }
         else
         {
@@ -249,28 +320,41 @@ bool CHMCreator::extractImageFromChm(struct chmFile *chm, struct chmUnitInfo *in
         }
     }
     else
-        qDebug() <<  "Error: image not retrieved (chm_resolve_object failed)";
+        qDebug() << "Error: image not retrieved (chm_resolve_object failed)";
 
     return false;
 }
 
-void CHMCreator::getCoverFileName() //terrible...I know :(
+void CHMCreator::getCoverFileName(int indexType)
 {
-    int posBegin = extractedFile.indexOf("<param name=\"Local\" value=\"", 0, Qt::CaseInsensitive);
-    while (posBegin <= extractedFile.length())
+    if (indexType == HHC_INDEX) // terrible...I know :(
     {
-        if(posBegin != -1) //if something is found...
+        int posBegin = extractedFileString.indexOf("<param name=\"Local\" value=\"", 0, Qt::CaseInsensitive);
+        while (posBegin <= extractedFileString.length())
         {
-            int posEnd = extractedFile.indexOf("\">", posBegin+27);
-            coverFileName = extractedFile.mid(posBegin+27, posEnd - posBegin-27);
-            qDebug() << "Found cover file name:" << coverFileName;
-            if (coverFileName != "")
+            if (posBegin != -1) // if something is found...
+            {
+                int posEnd = extractedFileString.indexOf("\">", posBegin+27);
+                coverFileName = extractedFileString.mid(posBegin+27, posEnd - posBegin-27);
+                qDebug() << "Found cover file name:" << coverFileName;
+                if (coverFileName != "")
+                    break;
+                else //tries to retrieve the next matching position
+                    posBegin = extractedFileString.indexOf("<param name=\"Local\" value=\"", posBegin+1, Qt::CaseInsensitive);
+            }
+            else
                 break;
-            else //tries to retrieve the next matching position
-                posBegin = extractedFile.indexOf("<param name=\"Local\" value=\"", posBegin+1, Qt::CaseInsensitive);
         }
-        else
-            break;
+    }
+    else if (indexType == URLSTR_INDEX)
+    {
+        extractedFileString.replace(QRegExp("\a+"), "\a"); // better to have only a character as separator for the splitting operation
+        QStringList items = extractedFileString.split("\a", QString::SkipEmptyParts);
+        if (items.count() != 0)
+        {
+            coverFileName = items.at(0);
+            qDebug() << "Found cover file name:" << coverFileName;
+        }
     }
 }
 

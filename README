@@ -1,12 +1,14 @@
-== kde-thumbnailer-chm ==
+kde-thumbnailer-chm
+===================
 
-A KDE thumbnail generator for the CHM file format. It uses CHMlib [http://www.jedrea.com/chmlib/] to extract the covers.
+A KDE thumbnail generator for the CHM file format. It uses [CHMlib](http://www.jedrea.com/chmlib/) to extract the covers.
 
-== Installation from source ==
+Installation from source
+------------------------
 
-mkdir build
-cd build
-cmake -DCMAKE_INSTALL_PREFIX=`kde4-config --prefix` ..
-make
-sudo make install
-kbuildsycoca4
+    mkdir build
+    cd build
+    cmake -DCMAKE_INSTALL_PREFIX=`kde4-config --prefix` ..
+    make
+    sudo make install
+    kbuildsycoca4

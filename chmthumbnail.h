@@ -45,11 +45,12 @@ class CHMCreator : public QObject, public ThumbCreator
         bool extractFileFromChm(struct chmFile *chm, struct chmUnitInfo *info, char *fileName = NULL);
         bool extractImageFromChm(struct chmFile *chm, struct chmUnitInfo *info, QString *imageName);
         
-        void getCoverFileName();
+        void getCoverFileName(int indexType);
         void checkCoverFileName();
         bool extractImagesUrlFromHtml(QStringList *ImagesUrlFromHtml);
 
-        QString extractedFile; //the content of a file retrieved by extractFileFromChm
+        QByteArray extractedFileByte; //the content of a file retrieved by extractFileFromChm (raw bytes, for #URLSTR files)
+        QString extractedFileString; //the content of a file retrieved by extractFileFromChm (for .hhc and html files)
         QString coverFileName; //usually it's a htm document, sometimes directly the cover image
         QImage coverImage;
 };

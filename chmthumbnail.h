@@ -1,6 +1,6 @@
 /*
 This file is part of kde-thumbnailer-chm
-Copyright (C) 2012 Caig <giacomosrv@gmail.com>
+Copyright (C) 2012-2016 Giacomo Barazzetti <giacomosrv@gmail.com>
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -20,7 +20,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 #define CHMTHUMBNAIL_H
 
 #include <QObject>
-#include <QImage>
+#include <QtGui/QImage>
 #include <kio/thumbcreator.h>
 
 #include <chm_lib.h>
@@ -31,7 +31,6 @@ class CHMCreator : public QObject, public ThumbCreator
      
     public:
         explicit CHMCreator();
-        virtual ~CHMCreator();
         virtual bool create(const QString& path, int width, int height, QImage& img);
         virtual Flags flags() const;
         

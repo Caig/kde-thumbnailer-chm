@@ -3,7 +3,7 @@ kde-thumbnailer-chm
 
 A KDE thumbnail generator for the CHM file format.
 It depends on [CHMlib](http://www.jedrea.com/chmlib/).
-Since ? release it works with KDE Frameworks 5, for KDE 4 just keep using 0.2 stable release.
+Since 0.2.1 release it works with KDE Frameworks 5, for KDE 4 just keep using 0.2 stable release.
 
 http://kde-apps.org/content/show.php/KDE+CHM+Thumbnailer?content=153410
 

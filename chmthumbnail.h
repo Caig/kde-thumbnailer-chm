@@ -48,7 +48,7 @@ class CHMCreator : public QObject, public ThumbCreator
         void checkCoverFileName();
         bool extractImagesUrlFromHtml(QStringList *ImagesUrlFromHtml);
 
-        QByteArray extractedFileByte; //the content of a file retrieved by extractFileFromChm (raw bytes, for #URLSTR files)
+        QByteArray extractedFileBytes; //the content of a file retrieved by extractFileFromChm (raw bytes, for #URLSTR files)
         QString extractedFileString; //the content of a file retrieved by extractFileFromChm (for .hhc and html files)
         QString coverFileName; //usually it's a htm document, sometimes directly the cover image
         QImage coverImage;

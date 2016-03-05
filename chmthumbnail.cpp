@@ -64,9 +64,9 @@ bool CHMCreator::create(const QString &path, int width, int height, QImage &img)
     // the same instance of the thumbnailer plugin is used
     // for all the CHMs in a directory, so better to clean
     // some important variables every time...
-    extractedFileByte = "";
-    extractedFileString = "";
-    coverFileName = "";
+    extractedFileBytes.clear();
+    extractedFileString.clear();
+    coverFileName.clear();
 
     // search for the index file *.hhc or #URLSTR
     int indexSearchResult = NO_INDEX;
@@ -76,7 +76,7 @@ bool CHMCreator::create(const QString &path, int width, int height, QImage &img)
     searchContext.searchForHhc = true;
     chm_enumerate(chm, CHM_ENUMERATE_ALL, indexCallBackWrapper, (void *)&searchContext);
 
-    if (extractedFileByte.length() != 0) {
+    if (!extractedFileBytes.isEmpty()) {
         indexSearchResult = HHC_INDEX;
     } else {
         qDebug() << "[thumbnailer-chm]" << "Index (*.hhc) not found";
@@ -84,7 +84,7 @@ bool CHMCreator::create(const QString &path, int width, int height, QImage &img)
         // search for #URLSTR file
         searchContext.searchForHhc = false;
         chm_enumerate(chm, CHM_ENUMERATE_ALL, indexCallBackWrapper, (void *)&searchContext);
-        if (extractedFileByte.length() != 0) {
+        if (!extractedFileBytes.isEmpty()) {
             indexSearchResult = URLSTR_INDEX;
         } else {
             qDebug() << "[thumbnailer-chm]" << "Index (#URLSTR) not found";
@@ -101,10 +101,10 @@ bool CHMCreator::create(const QString &path, int width, int height, QImage &img)
         // ( see QString::QString (const QByteArray & ba) ) successfully.
         // So better to replace '\0' with another character.
         if (indexSearchResult == URLSTR_INDEX) {
-            extractedFileByte.replace('\0', '\a');
+            extractedFileBytes.replace('\0', '\a');
         }
 
-        extractedFileString = QString(extractedFileByte);
+        extractedFileString = QString(extractedFileBytes);
 
         getCoverFileName(indexSearchResult);
         
@@ -123,7 +123,7 @@ bool CHMCreator::create(const QString &path, int width, int height, QImage &img)
 
             chmUnitInfo info;
             if (extractFileFromChm(chm, &info, coverFileName.toUtf8().data()) == true) {
-                extractedFileString = QString(extractedFileByte);
+                extractedFileString = QString(extractedFileBytes);
                 
                 // collects the src items from <img...> tags and tests the retrieved images
                 QStringList ImagesUrlFromHtml;
@@ -217,9 +217,9 @@ bool CHMCreator::extractFileFromChm(struct chmFile *chm, struct chmUnitInfo *inf
 
     if (CHM_RESOLVE_SUCCESS == chm_resolve_object(chm, fileName, info)) {
         //unsigned char buffer[info->length];
-        extractedFileByte.resize(info->length);
+        extractedFileBytes.resize(info->length);
 
-        LONGINT64 gotLen = chm_retrieve_object(chm, info, (unsigned char*)extractedFileByte.data(), 0, info->length);
+        LONGINT64 gotLen = chm_retrieve_object(chm, info, (unsigned char*)extractedFileBytes.data(), 0, info->length);
 
         if (gotLen == 0) {
             qDebug() << "[thumbnailer-chm]" <<  "Error: index not retrieved (invalid filesize)";
@@ -305,7 +305,7 @@ void CHMCreator::getCoverFileName(int indexType)
                 int posEnd = extractedFileString.indexOf("\">", posBegin+27);
                 coverFileName = extractedFileString.mid(posBegin+27, posEnd - posBegin-27);
                 qDebug() << "[thumbnailer-chm]" << "Found cover file name:" << coverFileName;
-                if (coverFileName != "") {
+                if (!coverFileName.isEmpty()) {
                     break;
                 } else { //tries to retrieve the next matching position
                     posBegin = extractedFileString.indexOf("<param name=\"Local\" value=\"", posBegin+1, Qt::CaseInsensitive);
@@ -317,7 +317,7 @@ void CHMCreator::getCoverFileName(int indexType)
     } else if (indexType == URLSTR_INDEX) {
         extractedFileString.replace(QRegExp("\a+"), "\a"); // better to have only a character as separator for the splitting operation
         QStringList items = extractedFileString.split("\a", QString::SkipEmptyParts);
-        if (items.count() != 0) {
+        if (!items.isEmpty()) {
             coverFileName = items.at(0);
             qDebug() << "[thumbnailer-chm]" << "Found cover file name:" << coverFileName;
         }

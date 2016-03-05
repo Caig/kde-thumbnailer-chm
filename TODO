@@ -1,2 +1,3 @@
+- refactor
 - support searching for the cover in a html frame
 - render the first html file if there isn't a cover image
